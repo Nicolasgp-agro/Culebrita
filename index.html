@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#2b3138">
+<meta name="description" content="La culebrita clásica, para jugar en el celular sin internet.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Culebrita">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>Culebrita</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap">
+<style>
+/* Layout: un celular clásico de botones — pantalla LCD verde arriba, teclado abajo. Un solo tema a propósito. */
+:root {
+  --body: #2b3138;        /* carcasa del teléfono */
+  --body-edge: #1b1f24;
+  --key: #48525d;         /* teclas */
+  --key-press: #36404a;
+  --key-text: #e3e7ea;
+  --lcd: #a7b98a;         /* fondo de la pantalla LCD */
+  --lcd-shadow: #95a878;
+  --pixel: #26301c;       /* píxel encendido */
+  --pixel-dim: rgba(38,48,28,.12);
+  --ground: #d9d4c7;      /* fondo de la página */
+  --display: "Silkscreen", "Courier New", monospace;
+  --digits: "VT323", "Courier New", monospace;
+  color-scheme: light;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; overscroll-behavior: none; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body {
+  background: var(--ground);
+  color: var(--pixel);
+  font-family: var(--digits);
+  display: flex; justify-content: center; align-items: flex-start;
+  padding-inline: 16px; padding-block: 20px;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none; -webkit-user-select: none;
+}
+.phone {
+  width: 100%; max-width: 400px;
+  background: var(--body);
+  border: 2px solid var(--body-edge);
+  border-radius: 34px 34px 48px 48px;
+  padding: 22px 18px 26px;
+  box-shadow: 0 14px 30px rgba(20,24,28,.35), inset 0 2px 0 rgba(255,255,255,.06);
+  display: flex; flex-direction: column; gap: 18px;
+  box-sizing: border-box;
+}
+.brand {
+  font-family: var(--display); font-size: 13px; letter-spacing: .25em;
+  color: #9aa6b1; text-align: center; text-transform: uppercase;
+}
+.lcd {
+  background: var(--lcd);
+  border-radius: 10px;
+  padding: 10px;
+  box-shadow: inset 0 0 0 3px var(--lcd-shadow), inset 0 6px 14px rgba(0,0,0,.18);
+  display: flex; flex-direction: column; gap: 6px;
+  position: relative;
+}
+.hud {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-family: var(--digits); font-size: 24px; line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.hud small { font-family: var(--display); font-size: 10px; letter-spacing: .08em; margin-right: 6px; }
+canvas {
+  display: block; width: 100%; aspect-ratio: 1; max-width: 100%;
+  image-rendering: pixelated;
+  border-top: 2px solid var(--pixel); border-bottom: 2px solid var(--pixel);
+}
+.overlay {
+  position: absolute; inset: 40px 10px 10px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; text-align: center;
+  background: rgba(167,185,138,.92);
+}
+.overlay h1 {
+  margin: 0; font-family: var(--display); font-weight: 700;
+  font-size: clamp(26px, 8vw, 36px); letter-spacing: .04em; text-wrap: balance;
+}
+.overlay p { margin: 0; font-size: 22px; line-height: 1.15; max-width: 26ch; }
+.blink { animation: blink 1s steps(2, start) infinite; }
+@keyframes blink { to { visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { .blink { animation: none; } }
+
+.keys {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px;
+}
+.side { display: flex; flex-direction: column; gap: 10px; }
+.side.right { align-items: flex-end; }
+.dpad {
+  display: grid; grid-template-columns: repeat(3, 58px); grid-template-rows: repeat(3, 58px);
+  gap: 4px;
+}
+button {
+  font: inherit; color: var(--key-text);
+  background: var(--key); border: 0; border-bottom: 3px solid var(--body-edge);
+  border-radius: 14px; cursor: pointer; touch-action: manipulation;
+}
+button:active, button.on { background: var(--key-press); border-bottom-width: 1px; transform: translateY(2px); }
+button:focus-visible { outline: 3px solid var(--lcd); outline-offset: 2px; }
+.dpad button { font-size: 26px; line-height: 1; }
+.dpad .up { grid-area: 1 / 2; } .dpad .left { grid-area: 2 / 1; }
+.dpad .right { grid-area: 2 / 3; } .dpad .down { grid-area: 3 / 2; }
+.dpad .mid { grid-area: 2 / 2; background: var(--body-edge); border: 0; border-radius: 50%; pointer-events: none; }
+.soft {
+  font-family: var(--display); font-size: 11px; letter-spacing: .06em;
+  padding: 12px 10px; min-width: 70px; border-radius: 20px;
+}
+.hint {
+  font-family: var(--display); font-size: 9px; letter-spacing: .08em; color: #7f8b96;
+  text-align: center; line-height: 1.6;
+}
+@media (max-width: 380px) {
+  .dpad { grid-template-columns: repeat(3, 50px); grid-template-rows: repeat(3, 50px); }
+  .soft { min-width: 58px; font-size: 10px; }
+}
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="brand">Culebrita</div>
+
+  <div class="lcd">
+    <div class="hud">
+      <span><small>PUNTOS</small><b id="score">0000</b></span>
+      <span><small>RÉCORD</small><b id="best">0000</b></span>
+    </div>
+    <canvas id="board" aria-label="Tablero del juego"></canvas>
+    <div class="overlay" id="overlay">
+      <h1 id="ovTitle">CULEBRITA</h1>
+      <p id="ovText">Come los puntos, no te muerdas la cola ni choques con las paredes.</p>
+      <p class="blink" id="ovCta">Toca JUGAR</p>
+    </div>
+  </div>
+
+  <div class="keys">
+    <div class="side">
+      <button class="soft" id="btnPlay" type="button">JUGAR</button>
+      <button class="soft" id="btnWalls" type="button" title="Cambiar modo de paredes">MURO: SÍ</button>
+    </div>
+    <div class="dpad" role="group" aria-label="Flechas">
+      <button class="up" data-dir="up" type="button" aria-label="Arriba">▲</button>
+      <button class="left" data-dir="left" type="button" aria-label="Izquierda">◀</button>
+      <span class="mid"></span>
+      <button class="right" data-dir="right" type="button" aria-label="Derecha">▶</button>
+      <button class="down" data-dir="down" type="button" aria-label="Abajo">▼</button>
+    </div>
+    <div class="side right">
+      <button class="soft" id="btnPause" type="button">PAUSA</button>
+      <button class="soft" id="btnSpeed" type="button" title="Velocidad inicial">VEL: 2</button>
+    </div>
+  </div>
+
+  <div class="hint">Teclado: flechas o WASD · Espacio pausa<br>Celular: botones o desliza sobre la pantalla</div>
+</div>
+
+<script>
+(() => {
+  const N = 20;                       // celdas por lado
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const $ = id => document.getElementById(id);
+  const PIX = '#26301c', DIM = 'rgba(38,48,28,.10)';
+
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+  };
+
+  let best = store.get('culebrita.best', 0);
+  let walls = store.get('culebrita.walls', true);
+  let level = store.get('culebrita.speed', 2);   // 1..3
+
+  let snake, dir, queue, food, bonus, score, eaten, state, timer, cell;
+  const DIRS = { up:[0,-1], down:[0,1], left:[-1,0], right:[1,0] };
+  const OPP = { up:'down', down:'up', left:'right', right:'left' };
+
+  const pad = n => String(n).padStart(4, '0');
+
+  function resize() {
+    cell = 0;   // draw() recalcula el tamaño con el ancho actual
+    draw();
+  }
+
+  function reset() {
+    const m = Math.floor(N / 2);
+    snake = [[m, m], [m - 1, m], [m - 2, m], [m - 3, m]];
+    dir = 'right'; queue = [];
+    score = 0; eaten = 0; bonus = null;
+    food = spawn();
+    updateHud();
+  }
+
+  function spawn() {
+    const busy = new Set(snake.map(([x, y]) => x + ',' + y));
+    if (food) busy.add(food[0] + ',' + food[1]);
+    if (bonus) busy.add(bonus.x + ',' + bonus.y);
+    let x, y;
+    do { x = Math.floor(Math.random() * N); y = Math.floor(Math.random() * N); } while (busy.has(x + ',' + y));
+    return [x, y];
+  }
+
+  function delay() {
+    const base = [0, 170, 130, 95][level];
+    return Math.max(55, base - eaten * 2.5);
+  }
+
+  function tick() {
+    if (queue.length) dir = queue.shift();
+    const [dx, dy] = DIRS[dir];
+    let [hx, hy] = snake[0];
+    hx += dx; hy += dy;
+
+    if (walls) {
+      if (hx < 0 || hy < 0 || hx >= N || hy >= N) return gameOver();
+    } else {
+      hx = (hx + N) % N; hy = (hy + N) % N;
+    }
+
+    const growing = hx === food[0] && hy === food[1];
+    const body = growing ? snake : snake.slice(0, -1);
+    if (body.some(([x, y]) => x === hx && y === hy)) return gameOver();
+
+    snake.unshift([hx, hy]);
+    if (growing) {
+      score += 10 * level; eaten++;
+      food = spawn();
+      if (eaten % 5 === 0) { const [bx, by] = spawn(); bonus = { x: bx, y: by, life: 40 }; }
+      buzz(30);
+    } else {
+      snake.pop();
+    }
+
+    if (bonus) {
+      if (hx === bonus.x && hy === bonus.y) {
+        score += 5 * level * Math.ceil(bonus.life / 4); bonus = null; buzz([30, 40, 30]);
+      } else if (--bonus.life <= 0) bonus = null;
+    }
+
+    updateHud(); draw();
+    timer = setTimeout(tick, delay());
+  }
+
+  function buzz(p) { try { navigator.vibrate && navigator.vibrate(p); } catch {} }
+
+  function updateHud() {
+    $('score').textContent = pad(score);
+    $('best').textContent = pad(Math.max(best, score));
+  }
+
+  function draw() {
+    if (!snake) return;
+    if (!cell || canvas.width !== Math.round(canvas.clientWidth * (window.devicePixelRatio || 1))) {
+      const w = Math.round(canvas.clientWidth * (window.devicePixelRatio || 1));
+      if (!w) return;
+      canvas.width = canvas.height = w; cell = w / N;
+    }
+    const W = canvas.width;
+    ctx.clearRect(0, 0, W, W);
+    const g = cell * 0.08;
+    // cuadrícula tenue de píxeles apagados, como un LCD
+    ctx.fillStyle = DIM;
+    for (let x = 0; x < N; x++) for (let y = 0; y < N; y++)
+      ctx.fillRect(x * cell + g, y * cell + g, cell - 2 * g, cell - 2 * g);
+
+    ctx.fillStyle = PIX;
+    // comida: un píxel en forma de rombo
+    const [fx, fy] = food, c = cell / 2;
+    ctx.beginPath();
+    ctx.moveTo(fx * cell + c, fy * cell + g * 1.5);
+    ctx.lineTo(fx * cell + cell - g * 1.5, fy * cell + c);
+    ctx.lineTo(fx * cell + c, fy * cell + cell - g * 1.5);
+    ctx.lineTo(fx * cell + g * 1.5, fy * cell + c);
+    ctx.closePath(); ctx.fill();
+
+    // bonus: un bicho que parpadea al final
+    if (bonus && (bonus.life > 10 || bonus.life % 2)) {
+      const bx = bonus.x * cell, by = bonus.y * cell, s = cell / 4;
+      [[1,0],[2,0],[0,1],[1,1],[2,1],[3,1],[0,2],[3,2],[1,3],[2,3]].forEach(([a, b]) =>
+        ctx.fillRect(bx + a * s, by + b * s, s - g / 2, s - g / 2));
+    }
+
+    // culebra: cada segmento es un píxel lleno; los segmentos se unen hacia el anterior
+    snake.forEach(([x, y], i) => {
+      ctx.fillRect(x * cell + g, y * cell + g, cell - 2 * g, cell - 2 * g);
+      const prev = snake[i - 1];
+      if (prev && Math.abs(prev[0] - x) + Math.abs(prev[1] - y) === 1) {
+        const mx = Math.min(prev[0], x), my = Math.min(prev[1], y);
+        if (prev[0] !== x) ctx.fillRect(mx * cell + cell - g, y * cell + g, 2 * g, cell - 2 * g);
+        else ctx.fillRect(x * cell + g, my * cell + cell - g, cell - 2 * g, 2 * g);
+      }
+    });
+    // ojo
+    const [hx, hy] = snake[0], [dx, dy] = DIRS[dir];
+    ctx.fillStyle = '#a7b98a';
+    const ex = hx * cell + c + dx * cell * 0.15 - dy * cell * 0.15;
+    const ey = hy * cell + c + dy * cell * 0.15 + dx * cell * 0.15;
+    ctx.fillRect(ex - cell * 0.09, ey - cell * 0.09, cell * 0.18, cell * 0.18);
+  }
+
+  function showOverlay(title, text, cta) {
+    $('ovTitle').textContent = title;
+    $('ovText').textContent = text;
+    $('ovCta').textContent = cta;
+    $('overlay').hidden = false;
+  }
+
+  function start() {
+    clearTimeout(timer);
+    reset(); draw();
+    state = 'play';
+    $('overlay').hidden = true;
+    $('btnPause').textContent = 'PAUSA';
+    timer = setTimeout(tick, delay());
+  }
+
+  function togglePause() {
+    if (state === 'play') {
+      state = 'pause'; clearTimeout(timer);
+      $('btnPause').textContent = 'SEGUIR';
+      showOverlay('PAUSA', 'Puntos: ' + score, 'Toca SEGUIR');
+    } else if (state === 'pause') {
+      state = 'play'; $('overlay').hidden = true;
+      $('btnPause').textContent = 'PAUSA';
+      timer = setTimeout(tick, delay());
+    }
+  }
+
+  function gameOver() {
+    state = 'over'; clearTimeout(timer); buzz([80, 60, 160]);
+    const record = score > best;
+    if (record) { best = score; store.set('culebrita.best', best); }
+    updateHud();
+    showOverlay('FIN DEL JUEGO',
+      (record ? '¡Nuevo récord! ' : '') + score + ' puntos · ' + snake.length + ' de largo',
+      'Toca JUGAR otra vez');
+  }
+
+  function turn(d) {
+    if (state === 'over' || !state) { start(); return; }
+    if (state === 'pause') togglePause();
+    const last = queue.length ? queue[queue.length - 1] : dir;
+    if (d === last || d === OPP[last] || queue.length > 2) return;
+    queue.push(d);
+  }
+
+  // Controles: teclado
+  const KEYS = { ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right', w:'up', s:'down', a:'left', d:'right', W:'up', S:'down', A:'left', D:'right' };
+  document.addEventListener('keydown', e => {
+    if (KEYS[e.key]) { e.preventDefault(); turn(KEYS[e.key]); }
+    else if (e.key === ' ' || e.key === 'p' || e.key === 'P') {
+      e.preventDefault();
+      if (state === 'play' || state === 'pause') togglePause(); else start();
+    } else if (e.key === 'Enter' && state !== 'play') start();
+  });
+
+  // Controles: botones (pointerdown para que responda sin demora en el celular)
+  document.querySelectorAll('[data-dir]').forEach(b => {
+    b.addEventListener('pointerdown', e => { e.preventDefault(); turn(b.dataset.dir); });
+    b.addEventListener('click', e => { if (e.detail === 0) turn(b.dataset.dir); }); // teclado/lector
+  });
+
+  // Controles: deslizar sobre la pantalla
+  let sx = null, sy = null;
+  const lcd = document.querySelector('.lcd');
+  lcd.addEventListener('touchstart', e => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; }, { passive: true });
+  lcd.addEventListener('touchmove', e => {
+    if (sx === null) return;
+    const t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+    e.preventDefault();
+    turn(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+    sx = t.clientX; sy = t.clientY;
+  }, { passive: false });
+  lcd.addEventListener('touchend', () => { sx = sy = null; });
+
+  $('btnPlay').addEventListener('click', start);
+  $('btnPause').addEventListener('click', togglePause);
+
+  function paintSettings() {
+    $('btnWalls').textContent = walls ? 'MURO: SÍ' : 'MURO: NO';
+    $('btnSpeed').textContent = 'VEL: ' + level;
+  }
+  $('btnWalls').addEventListener('click', () => {
+    walls = !walls; store.set('culebrita.walls', walls); paintSettings();
+    if (state === 'play' || state === 'pause') start();
+  });
+  $('btnSpeed').addEventListener('click', () => {
+    level = level % 3 + 1; store.set('culebrita.speed', level); paintSettings();
+    if (state === 'play' || state === 'pause') start();
+  });
+
+  document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play') togglePause(); });
+  window.addEventListener('resize', resize);
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(canvas);
+
+  paintSettings();
+  reset();
+  resize();
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
